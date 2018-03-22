@@ -553,6 +553,8 @@
  */
 - (void)uploadEvents;
 
+- (NSURLRequest *)createRequest:(NSString*) url apiKey:(NSString*) apiKey events:(NSString*) events;
+
 
 #pragma mark - Deprecated methods
 

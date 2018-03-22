@@ -434,7 +434,7 @@ static NSString *const SEQUENCE_NUMBER = @"sequence_number";
 {
     _eventLogUrl = urlString;
     _useJSON = YES;
-    [self initializeApiKey:@"NA"];
+    [self initializeApiKey:@"fakekey"];
 }
 
 - (void)initializeApiKey:(NSString*) apiKey
@@ -961,62 +961,45 @@ static NSString *const SEQUENCE_NUMBER = @"sequence_number";
     return SAFE_ARC_AUTORELEASE(results);
 }
 
-- (void)makeEventUploadPostRequest:(NSString*) url events:(NSString*) events numEvents:(long) numEvents maxEventId:(long long) maxEventId maxIdentifyId:(long long) maxIdentifyId useJSON: (BOOL) useJSON
-{
+- (NSURLRequest *)createRequest:(NSString*) url apiKey:(NSString*) apiKey events:(NSString*) events {
+    
     NSMutableURLRequest *request =[NSMutableURLRequest requestWithURL:[NSURL URLWithString:url]];
     [request setTimeoutInterval:60.0];
     
     NSString *apiVersionString = [[NSNumber numberWithInt:kAMPApiVersion] stringValue];
     
-    if (!useJSON) {
-        NSMutableData *postData = [[NSMutableData alloc] init];
-        [postData appendData:[@"v=" dataUsingEncoding:NSUTF8StringEncoding]];
-        [postData appendData:[apiVersionString dataUsingEncoding:NSUTF8StringEncoding]];
-        [postData appendData:[@"&client=" dataUsingEncoding:NSUTF8StringEncoding]];
-        [postData appendData:[_apiKey dataUsingEncoding:NSUTF8StringEncoding]];
-        [postData appendData:[@"&e=" dataUsingEncoding:NSUTF8StringEncoding]];
-        [postData appendData:[[self urlEncodeString:events] dataUsingEncoding:NSUTF8StringEncoding]];
-        
-        // Add timestamp of upload
-        [postData appendData:[@"&upload_time=" dataUsingEncoding:NSUTF8StringEncoding]];
-        NSString *timestampString = [[NSNumber numberWithLongLong:[[self currentTime] timeIntervalSince1970] * 1000] stringValue];
-        [postData appendData:[timestampString dataUsingEncoding:NSUTF8StringEncoding]];
-        
-        // Add checksum
-        [postData appendData:[@"&checksum=" dataUsingEncoding:NSUTF8StringEncoding]];
-        NSString *checksumData = [NSString stringWithFormat: @"%@%@%@%@", apiVersionString, _apiKey, events, timestampString];
-        NSString *checksum = [self md5HexDigest: checksumData];
-        [postData appendData:[checksum dataUsingEncoding:NSUTF8StringEncoding]];
-        
-        [request setHTTPMethod:@"POST"];
-        [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
-        [request setValue:[NSString stringWithFormat:@"%lu", (unsigned long)[postData length]] forHTTPHeaderField:@"Content-Length"];
-        
-        [request setHTTPBody:postData];
-        SAFE_ARC_RELEASE(postData);
-        
-    } else {
-        NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-        [dict setObject:apiVersionString forKey:@"v"];
-        [dict setObject:_apiKey forKey:@"client"];
-        [dict setObject:[self urlEncodeString:events] forKey:@"e"];
-        
-        NSString *timestampString = [[NSNumber numberWithLongLong:[[self currentTime] timeIntervalSince1970] * 1000] stringValue];
-        [dict setObject:timestampString forKey:@"upload_time"];
-        
-        NSString *checksumData = [NSString stringWithFormat: @"%@%@%@%@", apiVersionString, _apiKey, events, timestampString];
-        NSString *checksum = [self md5HexDigest: checksumData];
-        [dict setObject:checksum forKey:@"checksum"];
-        
-        NSError *e = nil;
-        NSData *postData = [NSJSONSerialization dataWithJSONObject:dict options:NSJSONWritingPrettyPrinted error:&e];
-        
-        [request setHTTPMethod:@"POST"];
-        [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-        [request setHTTPBody:postData];
-        SAFE_ARC_RELEASE(dict);
-        SAFE_ARC_RELEASE(postData);
-    }
+    NSMutableData *postData = [[NSMutableData alloc] init];
+    [postData appendData:[@"v=" dataUsingEncoding:NSUTF8StringEncoding]];
+    [postData appendData:[apiVersionString dataUsingEncoding:NSUTF8StringEncoding]];
+    [postData appendData:[@"&client=" dataUsingEncoding:NSUTF8StringEncoding]];
+    [postData appendData:[apiKey dataUsingEncoding:NSUTF8StringEncoding]];
+    [postData appendData:[@"&e=" dataUsingEncoding:NSUTF8StringEncoding]];
+    [postData appendData:[[self urlEncodeString:events] dataUsingEncoding:NSUTF8StringEncoding]];
+    
+    // Add timestamp of upload
+    [postData appendData:[@"&upload_time=" dataUsingEncoding:NSUTF8StringEncoding]];
+    NSString *timestampString = [[NSNumber numberWithLongLong:[[self currentTime] timeIntervalSince1970] * 1000] stringValue];
+    [postData appendData:[timestampString dataUsingEncoding:NSUTF8StringEncoding]];
+    
+    // Add checksum
+    [postData appendData:[@"&checksum=" dataUsingEncoding:NSUTF8StringEncoding]];
+    NSString *checksumData = [NSString stringWithFormat: @"%@%@%@%@", apiVersionString, apiKey, events, timestampString];
+    NSString *checksum = [self md5HexDigest: checksumData];
+    [postData appendData:[checksum dataUsingEncoding:NSUTF8StringEncoding]];
+    
+    [request setHTTPMethod:@"POST"];
+    [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:[NSString stringWithFormat:@"%lu", (unsigned long)[postData length]] forHTTPHeaderField:@"Content-Length"];
+    
+    [request setHTTPBody:postData];
+    SAFE_ARC_RELEASE(postData);
+    return request;
+}
+
+- (void)makeEventUploadPostRequest:(NSString*) url events:(NSString*) events numEvents:(long) numEvents maxEventId:(long long) maxEventId maxIdentifyId:(long long) maxIdentifyId useJSON: (BOOL) useJSON
+{
+    NSURLRequest *request = [self createRequest:url apiKey:_apiKey events:events];
+    if (request == nil) { return; }
     
     AMPLITUDE_LOG(@"Events: %@", events);
     
