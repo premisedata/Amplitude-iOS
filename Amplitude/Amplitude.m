@@ -1015,7 +1015,8 @@ static NSString *const SEQUENCE_NUMBER = @"sequence_number";
         if (response != nil) {
             if ([httpResponse statusCode] == 200) {
                 NSString *result = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-                if ([result isEqualToString:@"success"]) {
+		AMPLITUDE_LOG(@"Amplitude response: %@", result);
+                if ([result containsString:@"success"]) {
                     // success, remove existing events from dictionary
                     uploadSuccessful = YES;
                     if (maxEventId >= 0) {
